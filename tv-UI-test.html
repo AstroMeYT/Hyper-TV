@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TV Home Screen</title>
+<style>
+/* Global Reset & Base Styles */
+* {
+box-sizing: border-box;
+}
+body {
+margin: 0;
+font-family: Arial, sans-serif;
+background-color: #000;
+color: #fff;
+overflow: hidden;
+}
+/* Header: Time & Settings Icon */
+#header {
+display: flex;
+justify-content: space-between;
+align-items: center;
+background-color: #111;
+padding: 10px 20px;
+border-bottom: 2px solid #333;
+}
+#time {
+font-size: 1.8em;
+}
+#settingsIcon {
+font-size: 1.8em;
+cursor: pointer;
+padding: 5px 10px;
+}
+/* Highlight for selected header icon */
+#settingsIcon.selected {
+border: 2px solid #00f;
+border-radius: 5px;
+}
+/* App Grid */
+#appGrid {
+display: grid;
+grid-template-columns: repeat(4, 1fr);
+gap: 20px;
+padding: 20px;
+}
+.app {
+background-color: #222;
+border-radius: 10px;
+padding: 40px;
+text-align: center;
+font-size: 1.3em;
+transition: transform 0.2s, box-shadow 0.2s;
+cursor: pointer;
+}
+.app.selected {
+border: 3px solid #00f;
+box-shadow: 0 0 15px #00f;
+transform: scale(1.05);
+}
+/* Settings Overlay */
+#settingsScreen {
+position: fixed;
+top: 0;
+left: 0;
+width: 100%;
+height: 100%;
+background-color: rgba(0,0,0,0.95);
+display: none;
+z-index: 1000;
+overflow: auto;
+padding: 20px;
+}
+.settingsContainer {
+max-width: 600px;
+margin: 50px auto;
+text-align: center;
+}
+.settingsContainer h2 {
+margin-bottom: 20px;
+}
+/* Color Grid (8 preset colors in 4 columns) */
+.colorGrid {
+display: grid;
+grid-template-columns: repeat(4, 1fr);
+gap: 10px;
+margin-bottom: 20px;
+}
+.colorOption {
+position: relative;
+width: 100%;
+padding-top: 100%; /* square */
+border-radius: 8px;
+cursor: pointer;
+border: 3px solid transparent;
+transition: box-shadow 0.2s, border 0.2s;
+}
+.colorOption.selected {
+border: 3px solid #00f;
+box-shadow: 0 0 10px #00f;
+}
+.colorOptionInner {
+position: absolute;
+top: 0;
+bottom: 0;
+left: 0;
+right: 0;
+border-radius: 8px;
+}
+/* Back Button in Settings */
+#backButton {
+padding: 15px 20px;
+background-color: #444;
+border-radius: 8px;
+cursor: pointer;
+font-size: 1.3em;
+border: 3px solid transparent;
+transition: box-shadow 0.2s, border 0.2s;
+width: 150px;
+margin: 0 auto;
+}
+#backButton.selected {
+border: 3px solid #00f;
+box-shadow: 0 0 15px #00f;
+}
+</style>
+</head>
+<body>
+<!-- Header with Time and Settings Icon -->
+<div id="header">
+<div id="time">00:00:00</div>
+<div id="settingsIcon">⚙</div>
+</div>
+
+<!-- Home Screen: App Grid -->
+<div id="appGrid">
+<div class="app" data-url="https://www.netflix.com">Netflix</div>
+<div class="app" data-url="https://www.hulu.com">Hulu</div>
+<div class="app" data-url="https://www.disneyplus.com">Disney+</div>
+<div class="app" data-url="https://www.hbomax.com">Max</div>
+<div class="app" data-url="https://www.primevideo.com">Amazon Prime</div>
+<div class="app" data-url="https://www.youtube.com">YouTube</div>
+<div class="app" data-url="https://tv.apple.com">Apple TV</div>
+<div class="app" data-url="https://www.paramountplus.com">Paramount+</div>
+<div class="app" data-url="https://www.pluto.tv">Pluto TV</div>
+<div class="app" data-url="https://www.tubitv.com">Tubi</div>
+</div>
+
+<!-- Settings Overlay -->
+<div id="settingsScreen">
+<div class="settingsContainer">
+<h2>Settings</h2>
+<div class="colorGrid" id="colorGrid">
+<!-- 8 preset colors will be generated here -->
+</div>
+<div id="backButton">Back</div>
+</div>
+</div>
+
+<script>
+/* ------------------ Time Update ------------------ */
+function updateTime() {
+const timeEl = document.getElementById('time');
+const now = new Date();
+const hours = now.getHours().toString().padStart(2, '0');
+const minutes = now.getMinutes().toString().padStart(2, '0');
+const seconds = now.getSeconds().toString().padStart(2, '0');
+timeEl.textContent = `${hours}:${minutes}:${seconds}`;
+}
+setInterval(updateTime, 1000);
+updateTime();
+
+/* ------------------ Screen State ------------------ */
+let currentScreen = "home"; // "home" or "settings"
+
+/* -------------- Home Screen Navigation -------------- */
+// Two sections: header (only the settings icon) or the grid of apps.
+let homeSection = "grid"; // default is "grid"
+let gridSelectedIndex = 0; // index of selected app in grid (if homeSection === "grid")
+const gridCols = 4;
+const gridItems = Array.from(document.querySelectorAll('#appGrid .app'));
+const settingsIcon = document.getElementById('settingsIcon');
+
+function updateHomeSelection() {
+// Clear selection on header and grid items
+settingsIcon.classList.remove('selected');
+gridItems.forEach((item, index) => {
+item.classList.toggle('selected', homeSection === "grid" && index === gridSelectedIndex);
+});
+// If header is active, highlight settings icon
+if (homeSection === "header") {
+settingsIcon.classList.add('selected');
+}
+}
+updateHomeSelection();
+
+/* -------------- Settings Screen Setup -------------- */
+const settingsScreen = document.getElementById('settingsScreen');
+const colorGrid = document.getElementById('colorGrid');
+const backButton = document.getElementById('backButton');
+// 8 preset colors
+const presetColors = [
+"#000000", "#ffffff", "#ff0000", "#00ff00",
+"#0000ff", "#ffff00", "#ff00ff", "#00ffff"
+];
+// Generate color option elements
+presetColors.forEach((color, i) => {
+const colorDiv = document.createElement('div');
+colorDiv.classList.add('colorOption');
+colorDiv.setAttribute('data-index', i);
+colorDiv.setAttribute('data-color', color);
+
+const innerDiv = document.createElement('div');
+innerDiv.classList.add('colorOptionInner');
+innerDiv.style.backgroundColor = color;
+
+colorDiv.appendChild(innerDiv);
+colorGrid.appendChild(colorDiv);
+});
+// In settings, selectable elements: indices 0-7 for colors, 8 for back button.
+let settingsSelectedIndex = 0;
+const settingsGridCols = 4; // for color grid
+let settingsLastGridCol = 0; // store column when moving from grid to back button
+
+function getSettingsSelectable() {
+const colorOptions = Array.from(document.querySelectorAll('.colorOption'));
+return colorOptions.concat(backButton);
+}
+function updateSettingsSelection() {
+const elems = getSettingsSelectable();
+elems.forEach((el, idx) => {
+el.classList.toggle('selected', idx === settingsSelectedIndex);
+});
+}
+updateSettingsSelection();
+
+/* ------------------ Key Navigation ------------------ */
+document.addEventListener('keydown', function(e) {
+if (currentScreen === "home") {
+handleHomeKey(e);
+} else if (currentScreen === "settings") {
+handleSettingsKey(e);
+}
+});
+
+/* ------------------ Home Key Handler ------------------ */
+function handleHomeKey(e) {
+if (homeSection === "grid") {
+// Navigation within grid
+if (e.key === "ArrowRight") {
+if ((gridSelectedIndex % gridCols) < (gridCols - 1) && gridSelectedIndex + 1 < gridItems.length) {
+gridSelectedIndex++;
+}
+} else if (e.key === "ArrowLeft") {
+if (gridSelectedIndex % gridCols > 0) {
+gridSelectedIndex--;
+}
+} else if (e.key === "ArrowDown") {
+if (gridSelectedIndex + gridCols < gridItems.length) {
+gridSelectedIndex += gridCols;
+}
+} else if (e.key === "ArrowUp") {
+// If on the top row, move focus to header (settings icon)
+if (gridSelectedIndex < gridCols) {
+homeSection = "header";
+} else {
+gridSelectedIndex -= gridCols;
+}
+} else if (e.key === "Enter") {
+// Open the URL of the selected app
+const url = gridItems[gridSelectedIndex].getAttribute('data-url');
+if (url) {
+window.open(url, '_blank');
+}
+}
+} else if (homeSection === "header") {
+// In header, only the settings icon is selectable.
+if (e.key === "ArrowDown") {
+// Return to grid; keep previous grid index or default to 0.
+homeSection = "grid";
+} else if (e.key === "Enter") {
+// Open settings screen.
+openSettings();
+return;
+}
+}
+updateHomeSelection();
+}
+
+/* ------------------ Open/Close Settings ------------------ */
+function openSettings() {
+currentScreen = "settings";
+settingsScreen.style.display = "block";
+// Optional: Hide home screen elements if desired
+}
+function closeSettings() {
+currentScreen = "home";
+settingsScreen.style.display = "none";
+updateHomeSelection();
+}
+
+/* ------------------ Settings Key Handler ------------------ */
+function handleSettingsKey(e) {
+const selectable = getSettingsSelectable();
+const total = selectable.length; // should be 9 (8 color options + 1 back)
+if (e.key === "ArrowRight") {
+// If in color grid
+if (settingsSelectedIndex < 8) {
+const col = settingsSelectedIndex % settingsGridCols;
+if (col < settingsGridCols - 1 && settingsSelectedIndex + 1 < 8) {
+settingsSelectedIndex++;
+}
+}
+} else if (e.key === "ArrowLeft") {
+if (settingsSelectedIndex < 8) {
+const col = settingsSelectedIndex % settingsGridCols;
+if (col > 0) {
+settingsSelectedIndex--;
+}
+}
+} else if (e.key === "ArrowDown") {
+if (settingsSelectedIndex < 8) {
+// In the color grid
+if (settingsSelectedIndex < 4) {
+// move to the second row
+settingsSelectedIndex += 4;
+} else {
+// Already in bottom row, move to back button
+settingsLastGridCol = settingsSelectedIndex % settingsGridCols;
+settingsSelectedIndex = 8;
+}
+}
+} else if (e.key === "ArrowUp") {
+if (settingsSelectedIndex === 8) {
+// Move back up to the bottom row of color grid, in the same column if possible
+settingsSelectedIndex = 4 + settingsLastGridCol;
+} else if (settingsSelectedIndex >= 4) {
+settingsSelectedIndex -= 4;
+}
+} else if (e.key === "Enter") {
+if (settingsSelectedIndex === 8) {
+// Back button pressed; return to home screen.
+closeSettings();
+return;
+} else {
+// A color option is selected: change the background color.
+const elems = getSettingsSelectable();
+const selectedEl = elems[settingsSelectedIndex];
+const color = selectedEl.getAttribute('data-color');
+if (color) {
+document.body.style.backgroundColor = color;
+}
+}
+}
+updateSettingsSelection();
+}
+</script>
+</body>
+</html>
